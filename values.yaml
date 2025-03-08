@@ -1,0 +1,195 @@
+# 全局设置
+global:
+  namespace: default
+  imagePullSecrets: []
+  # - name: regcred
+
+# 日志配置
+log:
+  level: info
+
+# 数据库配置
+database:
+  type: mysql
+  host: mysql
+  database: horo
+  user: root
+  password: password
+
+# JWT配置，单位秒，默认1天
+jwt:
+  expire: 86400
+
+# 存储服务登录信息
+storage:
+  user: admin
+  password: admin
+
+# 星历表文件配置
+ephemeris:
+  baseUrl: "https://raw.githubusercontent.com/aloistr/swisseph/master/ephe"
+  files:
+    - "semo_18.se1"
+    - "semom48.se1"
+    - "sepl_18.se1"
+    - "seplm48.se1"
+  starFile:
+    url: "https://raw.githubusercontent.com/wlhyl/horo/main/sefstars.txt"
+    name: "sefstars.txt"
+
+# 数据库备份配置（可选）
+backup:
+  enabled: false  # 是否启用备份
+  schedule: "0 2 * * *"  # cron表达式，默认每天凌晨2点（Asia/Shanghai时区）
+  retention: 5  # 保留最近的备份数量
+  image:
+    repository: "ubuntu"  # 备份使用的镜像
+    tag: "22.04"          # 镜像标签
+    pullPolicy: IfNotPresent
+  age:
+    publicKey: ""  # age加密公钥
+  s3:
+    endpoint: ""  # S3兼容的对象存储端点
+    region: ""  # 区域
+    bucket: ""  # 存储桶名
+    accessKeyId: ""  # 访问密钥ID
+    secretAccessKey: ""  # 访问密钥密码
+    prefix: "backup/"  # 备份文件路径前缀
+
+# API 服务
+api:
+  replicaCount: 1
+  image:
+    repository: horo-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  livenessProbe:
+    path: /liveness
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /readiness
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  resources: {}
+  # resources示例:
+  # resources:
+  #   limits:
+  #     cpu: 500m
+  #     memory: 512Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
+
+# Storage API 服务
+storageApi:
+  replicaCount: 1
+  image:
+    repository: horo-storage-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  livenessProbe:
+    path: /liveness
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /readiness
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  resources: {}
+  # resources示例:
+  # resources:
+  #   limits:
+  #     cpu: 500m
+  #     memory: 512Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
+
+# UI 前端服务
+ui:
+  replicaCount: 1
+  image:
+    repository: horo-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  livenessProbe:
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  resources: {}
+  # resources示例:
+  # resources:
+  #   limits:
+  #     cpu: 300m
+  #     memory: 256Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
+
+# Storage UI 前端服务（可选）
+storageUi:
+  enabled: false  # 默认禁用，可选
+  replicaCount: 1
+  image:
+    repository: horo-storage-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  livenessProbe:
+    path: /horo-admin
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /horo-admin
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  resources: {}
+  # resources示例:
+  # resources:
+  #   limits:
+  #     cpu: 300m
+  #     memory: 256Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
+
+# Ingress 配置
+ingress:
+  enabled: false  # 默认禁用
+  className: "nginx"
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  host: "horo.example.com"  # 主机名
+  paths:
+    - path: /api
+      pathType: Prefix
+      targetService: api  # 用于逻辑判断的服务类型标识
+    - path: /api/horo-admin
+      pathType: Prefix
+      targetService: storageApi  # 用于逻辑判断的服务类型标识
+    - path: /
+      pathType: Prefix
+      targetService: ui  # 用于逻辑判断的服务类型标识
+    - path: /horo-admin
+      pathType: Prefix
+      targetService: storageUi  # 用于逻辑判断的服务类型标识，仅在启用storageUi时生效
+  tls:
+    enabled: false  # 默认禁用HTTPS
+    secretName: horo-tls-secret

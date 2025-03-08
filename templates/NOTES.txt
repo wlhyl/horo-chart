@@ -1,0 +1,37 @@
+感谢您安装 {{ .Chart.Name }} Chart！
+
+{{- if .Values.ingress.enabled }}
+您的应用已经通过Ingress暴露，可以通过以下URL访问：
+
+{{- range .Values.ingress.paths }}
+  {{- if eq .targetService "ui" }}
+前端UI: http{{ if $.Values.ingress.tls.enabled }}s{{ end }}://{{ $.Values.ingress.host }}{{ .path }}
+  {{- end }}
+  {{- if and (eq .targetService "storageUi") ($.Values.storageUi.enabled) }}
+存储UI: http{{ if $.Values.ingress.tls.enabled }}s{{ end }}://{{ $.Values.ingress.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+
+{{- else }}
+您的应用已经部署，但Ingress未启用。
+
+要访问应用，您可以通过以下方式：
+
+1. 使用端口转发访问UI:
+   kubectl port-forward svc/{{ include "horo.fullname" . }}-ui 8080:{{ .Values.ui.service.port }} -n {{ .Release.Namespace }}
+   然后在浏览器中访问: http://localhost:8080
+
+{{- if .Values.storageUi.enabled }}
+2. 使用端口转发访问存储UI:
+   kubectl port-forward svc/{{ include "horo.fullname" . }}-storage-ui 8081:{{ .Values.storageUi.service.port }} -n {{ .Release.Namespace }}
+   然后在浏览器中访问: http://localhost:8081
+{{- end }}
+
+如果您想通过Ingress访问应用，请更新values.yaml文件中的ingress配置并重新部署:
+
+helm upgrade {{ .Release.Name }} . --set ingress.enabled=true
+
+{{- end }}
+
+要查看应用的状态，请运行:
+  kubectl get all -l "app.kubernetes.io/instance={{ .Release.Name }}" -n {{ .Release.Namespace }} 

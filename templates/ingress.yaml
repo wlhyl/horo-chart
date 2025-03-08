@@ -1,0 +1,52 @@
+{{- if .Values.ingress.enabled -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "horo.fullname" . }}
+  labels:
+    {{- include "horo.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if and .Values.ingress.tls.enabled .Values.ingress.tls.secretName }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          {{- range .Values.ingress.paths }}
+          {{- if or (ne .targetService "storageUi") ($.Values.storageUi.enabled) }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                {{- if eq .targetService "api" }}
+                name: {{ include "horo.fullname" $ }}-api
+                port:
+                  number: {{ $.Values.api.service.port }}
+                {{- else if eq .targetService "storageApi" }}
+                name: {{ include "horo.fullname" $ }}-storage-api
+                port:
+                  number: {{ $.Values.storageApi.service.port }}
+                {{- else if eq .targetService "ui" }}
+                name: {{ include "horo.fullname" $ }}-ui
+                port:
+                  number: {{ $.Values.ui.service.port }}
+                {{- else if eq .targetService "storageUi" }}
+                name: {{ include "horo.fullname" $ }}-storage-ui
+                port:
+                  number: {{ $.Values.storageUi.service.port }}
+                {{- end }}
+          {{- end }}
+          {{- end }}
+{{- end }} 

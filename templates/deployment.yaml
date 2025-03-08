@@ -1,0 +1,251 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "horo.fullname" . }}-api
+  labels:
+    {{- include "horo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "horo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "horo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: download-ephemeris
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cd /swe
+              echo "Downloading ephemeris files..."
+              {{- range .Values.ephemeris.files }}
+              curl -O {{ $.Values.ephemeris.baseUrl }}/{{ . }}
+              {{- end }}
+              curl -o {{ .Values.ephemeris.starFile.name }} {{ .Values.ephemeris.starFile.url }}
+              echo "Downloaded all required files."
+          volumeMounts:
+            - name: swe-data
+              mountPath: /swe
+      containers:
+        - name: {{ .Chart.Name }}-api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          env:
+            - name: LOG4RS_CONFIG
+              value: /app/config/log4rs.yaml
+            - name: EPHE_PATH
+              value: /swe
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.api.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.api.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.readinessProbe.periodSeconds }}
+          volumeMounts:
+            - name: log4rs-config
+              mountPath: /app/config
+            - name: swe-data
+              mountPath: /swe
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      volumes:
+        - name: log4rs-config
+          configMap:
+            name: {{ include "horo.fullname" . }}-log4rs-config
+        - name: swe-data
+          emptyDir: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "horo.fullname" . }}-storage-api
+  labels:
+    {{- include "horo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage-api
+spec:
+  replicas: {{ .Values.storageApi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "horo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: storage-api
+  template:
+    metadata:
+      labels:
+        {{- include "horo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: storage-api
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: db-migration
+          image: "{{ .Values.storageApi.image.repository }}:{{ .Values.storageApi.image.tag }}"
+          command: ["/app/bin/migration"]
+          env:
+            - name: DATABASE_URL
+              value: "{{ .Values.database.type }}://{{ .Values.database.user }}:{{ .Values.database.password }}@{{ .Values.database.host }}/{{ .Values.database.database }}"
+            - name: USERNAME
+              value: "{{ .Values.storage.user }}"
+            - name: PASSWORD
+              value: "{{ .Values.storage.password }}"
+            - name: TZ
+              value: Asia/Shanghai
+      containers:
+        - name: {{ .Chart.Name }}-storage-api
+          image: "{{ .Values.storageApi.image.repository }}:{{ .Values.storageApi.image.tag }}"
+          imagePullPolicy: {{ .Values.storageApi.image.pullPolicy }}
+          env:
+            - name: DATABASE_URL
+              value: "{{ .Values.database.type }}://{{ .Values.database.user }}:{{ .Values.database.password }}@{{ .Values.database.host }}/{{ .Values.database.database }}"
+            - name: TOKEN_EXPIRE_SECONDS
+              value: "{{ .Values.jwt.expire }}"
+            - name: LOG4RS_CONFIG
+              value: /app/config/log4rs.yaml
+            - name: TZ
+              value: Asia/Shanghai
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.storageApi.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.storageApi.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.storageApi.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.storageApi.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.storageApi.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.storageApi.readinessProbe.periodSeconds }}
+          volumeMounts:
+            - name: log4rs-config
+              mountPath: /app/config
+          resources:
+            {{- toYaml .Values.storageApi.resources | nindent 12 }}
+      volumes:
+        - name: log4rs-config
+          configMap:
+            name: {{ include "horo.fullname" . }}-log4rs-config
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "horo.fullname" . }}-ui
+  labels:
+    {{- include "horo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ui
+spec:
+  replicas: {{ .Values.ui.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "horo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ui
+  template:
+    metadata:
+      labels:
+        {{- include "horo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ui
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}-ui
+          image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag }}"
+          imagePullPolicy: {{ .Values.ui.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.ui.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.ui.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ui.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.ui.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.ui.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ui.readinessProbe.periodSeconds }}
+          resources:
+            {{- toYaml .Values.ui.resources | nindent 12 }}
+
+{{- if .Values.storageUi.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "horo.fullname" . }}-storage-ui
+  labels:
+    {{- include "horo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage-ui
+spec:
+  replicas: {{ .Values.storageUi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "horo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: storage-ui
+  template:
+    metadata:
+      labels:
+        {{- include "horo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: storage-ui
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}-storage-ui
+          image: "{{ .Values.storageUi.image.repository }}:{{ .Values.storageUi.image.tag }}"
+          imagePullPolicy: {{ .Values.storageUi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.storageUi.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.storageUi.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.storageUi.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.storageUi.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.storageUi.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.storageUi.readinessProbe.periodSeconds }}
+          resources:
+            {{- toYaml .Values.storageUi.resources | nindent 12 }}
+{{- end }} 
