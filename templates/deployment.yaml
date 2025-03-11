@@ -31,11 +31,20 @@ spec:
             - |
               cd /swe
               echo "Downloading ephemeris files..."
+              set -e  # 添加错误检测，任何命令失败都会导致脚本退出
               {{- range .Values.ephemeris.files }}
-              curl -O {{ $.Values.ephemeris.baseUrl }}/{{ . }}
+              curl -f -S -O {{ $.Values.ephemeris.baseUrl }}/{{ . }} || { echo "Failed to download {{ . }}"; exit 1; }
               {{- end }}
-              curl -o {{ .Values.ephemeris.starFile.name }} {{ .Values.ephemeris.starFile.url }}
-              echo "Downloaded all required files."
+              curl -f -S -o {{ .Values.ephemeris.starFile.name }} {{ .Values.ephemeris.starFile.url }} || { echo "Failed to download {{ .Values.ephemeris.starFile.name }}"; exit 1; }
+              
+              # 验证所有文件都已下载
+              echo "Verifying downloaded files..."
+              {{- range .Values.ephemeris.files }}
+              [ -f "{{ . }}" ] || { echo "File {{ . }} not found after download"; exit 1; }
+              {{- end }}
+              [ -f "{{ .Values.ephemeris.starFile.name }}" ] || { echo "File {{ .Values.ephemeris.starFile.name }} not found after download"; exit 1; }
+              
+              echo "Downloaded and verified all required files."
           volumeMounts:
             - name: swe-data
               mountPath: /swe
