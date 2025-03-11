@@ -54,7 +54,7 @@ ephemeris:
     - "sepl_18.se1"
     - "seplm48.se1"
   starFile:  # 恒星文件
-    url: "https://raw.githubusercontent.com/wlhyl/horo/main/sefstars.txt"
+    url: "https://raw.githubusercontent.com/wlhyl/horo-api/main/sefstars.txt"
 
 # 数据库备份配置（可选）
 backup:
