@@ -96,7 +96,7 @@ data:
 
     for i in $(mc --config-dir /tmp/mc  ls s3/${S3_BUCKET}/${S3_PREFIX} | awk -F' ' '{print $NF}'  | sort -r  | tail -n +6)
     do
-      mc --config-dir /tmp/mc  rm s3/${BUCKET}/${PREFIX}${i}
+      mc --config-dir /tmp/mc  rm s3/${S3_BUCKET}/${S3_PREFIX}${i}
       if [ $? -ne 0 ]
       then
         exit 1
