@@ -36,6 +36,7 @@ spec:
               curl -f -S -O {{ $.Values.ephemeris.baseUrl }}/{{ . }} || { echo "Failed to download {{ . }}"; exit 1; }
               {{- end }}
               curl -f -S -o {{ .Values.ephemeris.starFile.name }} {{ .Values.ephemeris.starFile.url }} || { echo "Failed to download {{ .Values.ephemeris.starFile.name }}"; exit 1; }
+              curl -f -S -o {{ .Values.ephemeris.leapSecFile.name }} {{ .Values.ephemeris.leapSecFile.url }} || { echo "Failed to download {{ .Values.ephemeris.leapSecFile.name }}"; exit 1; }
               
               # 验证所有文件都已下载
               echo "Verifying downloaded files..."
@@ -43,6 +44,7 @@ spec:
               [ -f "{{ . }}" ] || { echo "File {{ . }} not found after download"; exit 1; }
               {{- end }}
               [ -f "{{ .Values.ephemeris.starFile.name }}" ] || { echo "File {{ .Values.ephemeris.starFile.name }} not found after download"; exit 1; }
+              [ -f "{{ .Values.ephemeris.leapSecFile.name }}" ] || { echo "File {{ .Values.ephemeris.leapSecFile.name }} not found after download"; exit 1; }
               
               echo "Downloaded and verified all required files."
           volumeMounts:
